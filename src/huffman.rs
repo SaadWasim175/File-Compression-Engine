@@ -1,7 +1,8 @@
-use std::{fs::{File, OpenOptions}, io::{Seek, Write}};
-use crate::{bit_writer::{self, BufBitWriter, Writer}, metadata::HEADER_LEN};
+use std::{fs::{File, OpenOptions}, io::{Seek, Write}, os::unix::fs::MetadataExt};
+use crate::{bit_writer::{self, BufBitWriter}, metadata::{HEADER_LEN, write_metadata}};
 use std::io::Read;
 use bit_writer::WritesBits;
+use crate::Writer;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Node {
@@ -66,12 +67,6 @@ pub fn get_frequency(byte_vec: &mut [u8]) -> [u32; 256] {
 
 pub fn write_tree(bytes_vec: &mut [u8]) -> Node {
 
-    let mut header = [0u8; HEADER_LEN];
-
-    for i in 0..HEADER_LEN {
-        header[i] = bytes_vec[i];
-    }
-
     let freq = get_frequency(bytes_vec);
 
     let mut freq_u8 = [0u8; 1024];
@@ -131,14 +126,17 @@ fn encode<W:Write>(table: &mut Vec<Code>, writer: &mut impl WritesBits<W>, bytes
 
 pub fn compress_huffman_file_write(path: &str) {
     let mut file = File::open(path).unwrap();
-    let mut init_buf = [0u8; 8*1000*1000];
-    let init_bytes = file.read(&mut init_buf).unwrap();
+    let mut buf = [0u8; 6*1000*1000];
+    file.seek(std::io::SeekFrom::Start(0)).unwrap();
+    let init_bytes = file.read(&mut buf).unwrap();
 
-    let mut output_file = OpenOptions::new().create(true).write(true).read(true).open("buf_huffman.compr").unwrap();
+    // println!("First 11 bytes are: {:#?}", buf[..11].iter());
 
-    let tree = write_tree(&mut init_buf[..init_bytes]);
+    let mut output_file = OpenOptions::new().create(true).write(true).read(true).truncate(true).open("buf_huffman.compr").unwrap();
+
+    let tree = write_tree(&mut buf[..init_bytes]);
     let mut table = vec![Code{bits: 0, len: 0}; 256];
-    let freq = get_frequency(&mut init_buf[..init_bytes]);
+    let freq = get_frequency(&mut buf[..init_bytes]);
     let mut path = Code{bits: 0, len: 0};
     traverse(&Some(Box::new(tree)), &mut table, &mut path);
 
@@ -154,80 +152,86 @@ pub fn compress_huffman_file_write(path: &str) {
         c += 4;
     }
 
-    let mut headers = [0u8; HEADER_LEN];
-    for i in 0..HEADER_LEN {
-        headers[i] = init_buf[i];
-    }
+    
+    let mut headers = vec![];
+    write_metadata(&mut headers, file.metadata().unwrap().size(), "txt");
 
     output_file.write_all(&headers).unwrap();
     output_file.write_all(&freq_u8).unwrap();
 
     file.seek(std::io::SeekFrom::Start(0)).unwrap();
-    let mut buf = [0u8; 10*1000*1000];
 
     let mut writer = BufBitWriter::new(0, output_file);
 
     loop {
         let bytes = file.read(&mut buf).unwrap();
+        let first_bytes = &buf[..11];
+
+        println!("firsdt 11 bytes are: ");
+        for byte in first_bytes {
+            println!("{}", byte.to_string())
+        }
+
 
         if bytes == 0 {
             break;
         }
 
-        encode(&mut table, &mut writer, &mut buf);
+        encode(&mut table, &mut writer, &mut buf[0..bytes]);
     }
     writer.flush();
 
 }
 
-// pub fn compress_via_huffman(bytes: &mut [u8]) -> Vec<u8> {
-//     let tree = write_tree(bytes);
-//     let mut table = vec![Code{bits: 0, len: 0}; 256];
-//     let freq = get_frequency(bytes);
-//     let mut path = Code{bits: 0, len: 0};
-//     traverse(&Some(Box::new(tree)), &mut table, &mut path);
+#[deprecated]
+pub fn compress_via_huffman(bytes: &mut [u8]) -> Vec<u8> {
+    let tree = write_tree(bytes);
+    let mut table = vec![Code{bits: 0, len: 0}; 256];
+    let freq = get_frequency(bytes);
+    let mut path = Code{bits: 0, len: 0};
+    traverse(&Some(Box::new(tree)), &mut table, &mut path);
     
-//     let mut freq_u8 = [0u8; 1024];
+    let mut freq_u8 = [0u8; 1024];
 
-//     let mut c = 0;
+    let mut c = 0;
 
-//     for i in 0..256{
-//         let u8_values = u32::to_le_bytes(freq[i]);
-//         freq_u8[c] = u8_values[0];
-//         freq_u8[c+1] = u8_values[1];
-//         freq_u8[c+2] = u8_values[2];
-//         freq_u8[c+3] = u8_values[3];
-//         c += 4
-//     }
+    for i in 0..256{
+        let u8_values = u32::to_le_bytes(freq[i]);
+        freq_u8[c] = u8_values[0];
+        freq_u8[c+1] = u8_values[1];
+        freq_u8[c+2] = u8_values[2];
+        freq_u8[c+3] = u8_values[3];
+        c += 4
+    }
 
-//     let mut header = [0u8; HEADER_LEN];
+    let mut header = [0u8; HEADER_LEN];
 
-//     for i in 0..HEADER_LEN{
-//         header[i] = bytes[i];
-//     }
+    for i in 0..HEADER_LEN{
+        header[i] = bytes[i];
+    }
 
-//     for i in 0..256 {
-//         if table[i].len > 0 {
-//             println!(
-//                 "{} -> {:b} ({})",
-//                 i,
-//                 table[i].bits,
-//                 table[i].len
-//             )
-//         }
-//     }
-//     let mut output_vec: Vec<u8> = vec![];
+    for i in 0..256 {
+        if table[i].len > 0 {
+            println!(
+                "{} -> {:b} ({})",
+                i,
+                table[i].bits,
+                table[i].len
+            )
+        }
+    }
+    let mut output_vec: Vec<u8> = vec![];
 
-//     output_vec.write_all(&header).unwrap();
-//     output_vec.write_all(&freq_u8).unwrap();
+    output_vec.write_all(&header).unwrap();
+    output_vec.write_all(&freq_u8).unwrap();
 
-//     let mut writer = Writer::new(0, &mut output_vec);
-//     encode(&mut table, &mut writer, bytes);
-//     writer.flush();
+    let mut writer = Writer::new(0, &mut output_vec);
+    encode(&mut table, &mut writer, bytes);
+    writer.flush();
 
-//     output_vec
+    output_vec
 
-// }
+}
 
 fn read_freq(bytes: &mut [u8]) -> [u8; 1024] {
     let mut freqs_u8 = [0u8; 1024];

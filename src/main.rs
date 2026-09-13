@@ -6,8 +6,8 @@ use std::time::Instant;
 use minifb::Key::P;
 
 use crate::bit_writer::{BufBitWriter, Writer, WriterU16};
-use crate::helper_funcs::{compress_file_huffman, write_compressed_data, decompress_file_huffman};
-use crate::huffman::compress_via_huffman;
+use crate::helper_funcs::{compress_file_huffman, decompress_file_huffman, write_compressed_data};
+use crate::huffman::compress_huffman_file_write;
 use crate::lzw::{buffered_lzw_compression_write_file, buffered_lzw_decompression_file_write, compress_via_lzw, decompress_lzw, non_buffered_lzw_compression_file_write};
 
 mod helper_funcs;
@@ -48,4 +48,5 @@ fn main() {
 
     // file.write_all(&decompr).unwrap();
 
+    decompress_file_huffman("buf_huffman.compr");
 }

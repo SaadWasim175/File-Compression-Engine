@@ -1,11 +1,12 @@
 use crate::bit_writer::{BufBitWriter, Writer};
 use crate::metadata;
-use crate::huffman::{compress_via_huffman, decompress_via_huffman};
+use crate::huffman::{decompress_via_huffman, compress_via_huffman};
 use std::path::Path;
 use std::fs::File;
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::Write;
+use crate::bit_writer::WritesBits;
 
 pub fn compress_file_huffman(path: &str) {
     let file = File::open(path).unwrap();
@@ -55,7 +56,6 @@ pub fn decompress_file_huffman(path: &str) {
     }
 
     let mut bytes = fs::read(path).unwrap();
-
     
     let mut header = [0u8; 24];
     
@@ -74,13 +74,11 @@ pub fn decompress_file_huffman(path: &str) {
 
     let mut decom_vec = decompress_via_huffman(&mut bytes);
 
-    let comb_string: String = format!("{}.{}", name_part, format);
+    let comb_string: String = format!("{}_decom.{}", name_part, format);
     
     let return_val: &str = &comb_string;
 
     let mut decomp_file = OpenOptions::new().write(true).read(true).create(true).open(return_val).unwrap();
-
-    decom_vec.drain(0..24);
 
     decomp_file.write_all(&decom_vec).unwrap();
 
@@ -93,8 +91,4 @@ pub fn write_compressed_data(compr: Vec<u16>, writer: &mut BufBitWriter<&mut Fil
             writer.write_bit(bit);
         }
     }
-}
-
-pub fn read_lzw_compr_file(file: &mut File) {
-    
 }

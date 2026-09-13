@@ -11,6 +11,7 @@ use crate::bit_writer::BufBitWriter;
 use crate::bit_writer::WriterU16;
 use crate::metadata::lzw_metadata;
 use crate::write_compressed_data;
+use crate::bit_writer::WritesBits;
 //dictionary needs to be initialized with values 0-255 first
 //dictionary_count needs to be equal to 256
 //

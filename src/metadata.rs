@@ -8,7 +8,7 @@ use std::{fs::File, io::Write};
 
 pub const HEADER_LEN: usize = 5 + 8 + 1 + 10;
 
-pub fn write_metadata(vector: &mut Vec<u8>, og_size: u64, format: &str) {
+pub fn write_metadata(mut vector: &mut Vec<u8>, og_size: u64, format: &str) {
     let unique_ident = "compr";
     let ident_bytes = unique_ident.as_bytes();
     let format_bytes = format.as_bytes();
