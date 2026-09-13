@@ -23,7 +23,9 @@ Currently, for smaller files it does straightforward, simple compression, while 
 ## To-Do tasks
 Still need to implement a pipeline so that multiple compression algorithms can work in a downstream way.
 
-Need to implement buffered Huffman compression.
+Need to implement buffered Huffman compression. (Done ✅)
+
+Need to implement buffered Huffman decompression.
 
 Need to build a GUI or a more presentable TUI (terminal user interface).
 
